@@ -119,22 +119,31 @@ namespace linkforge
 
     void ProtocolSerializer::validate(const PacketHeader& header) const
     {
-        bool isEmpty = true;
+        bool hasNonZero = false;
         for (size_t i = 0; i < MAX_SESSION_ID; ++i)
         {
             if (header.session_id[i] != 0)
             {
-                isEmpty = false;
+                hasNonZero = true;
                 break;
             }
         }
 
-        if (!isEmpty)
+        if (!hasNonZero)
         {
-            for (size_t i = 0; i < MAX_SESSION_ID; ++i)
+            throw ProtocolError(ErrorCode::INVALID_SESSION_ID, "Session ID is empty");
+        }
+
+        bool seenNull = false;
+        for (size_t i = 0; i < MAX_SESSION_ID; ++i)
+        {
+            if (header.session_id[i] == 0)
             {
-                if (header.session_id[i] == 0 && i < header.session_id[0])
-                    throw ProtocolError(ErrorCode::INVALID_SESSION_ID, "Session ID contains null byte");
+                seenNull = true;
+            }
+            else if (seenNull)
+            {
+                throw ProtocolError(ErrorCode::INVALID_SESSION_ID, "Session ID contains null byte");
             }
         }
 

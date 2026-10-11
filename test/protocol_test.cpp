@@ -103,7 +103,7 @@ void test5()
     test_assert_eq(ntohl(htonl(val)), val, "htonl/ntohl roundtrip");
     test_assert_eq(htonl(0x00000001), 0x01000000, "htonl(0x00000001)");
     test_assert_eq(htonl(0x01000000), 0x00000001, "htonl(0x01000000)");
-    test_assert_eq(htonl(0x12345678), 0x12345678, "htonl(0x12345678)");
+    test_assert_eq(htonl(0x12345678), 0x78563412, "htonl(0x12345678)");
 }
 
 void test6()
@@ -126,7 +126,7 @@ void test6()
     ProtocolSerializer serializer;
 
     size_t written = serializer.serialize(header, payload, serialized);
-    test_assert_eq((int)written, (int)(PacketHeader::HEADER_SIZE + 100), "serialize length");
+    test_assert_eq((int)written, (int)(PacketHeader::PacketHeader::HEADER_SIZE + 100), "serialize length");
 
     PacketHeader header2;
     std::vector<uint8_t> payload2;
@@ -171,7 +171,7 @@ void test7()
     ProtocolSerializer serializer;
 
     size_t written = serializer.serialize(header, frame, payload, serialized);
-    test_assert_eq((int)written, (int)(PacketHeader::HEADER_SIZE + sizeof(FrameHeader) + 50), "serialize with frame length");
+    test_assert_eq((int)written, (int)(PacketHeader::PacketHeader::HEADER_SIZE + sizeof(FrameHeader) + 50), "serialize with frame length");
 
     PacketHeader header2;
     FrameHeader frame2;
@@ -216,9 +216,9 @@ void test9()
     header.fragment_index = 0;
     header.fragment_count = 1;
 
-    std::vector<uint8_t> data(HEADER_SIZE + header.payload_length);
-    std::memcpy(data.data(), &header, HEADER_SIZE);
-    std::memset(data.data() + HEADER_SIZE, 0, header.payload_length);
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
 
     PacketHeader header2;
     std::vector<uint8_t> payload;
@@ -243,9 +243,9 @@ void test10()
     header.fragment_index = 0;
     header.fragment_count = 1;
 
-    std::vector<uint8_t> data(HEADER_SIZE + header.payload_length);
-    std::memcpy(data.data(), &header, HEADER_SIZE);
-    std::memset(data.data() + HEADER_SIZE, 0, header.payload_length);
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
 
     PacketHeader header2;
     std::vector<uint8_t> payload;
@@ -270,9 +270,9 @@ void test11()
     header.fragment_index = 0;
     header.fragment_count = 1;
 
-    std::vector<uint8_t> data(HEADER_SIZE + header.payload_length);
-    std::memcpy(data.data(), &header, HEADER_SIZE);
-    std::memset(data.data() + HEADER_SIZE, 0, header.payload_length);
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
 
     PacketHeader header2;
     std::vector<uint8_t> payload;
@@ -297,9 +297,9 @@ void test12()
     header.fragment_index = 0;
     header.fragment_count = 1;
 
-    std::vector<uint8_t> data(HEADER_SIZE + header.payload_length);
-    std::memcpy(data.data(), &header, HEADER_SIZE);
-    std::memset(data.data() + HEADER_SIZE, 0, header.payload_length);
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
 
     PacketHeader header2;
     std::vector<uint8_t> payload;
@@ -324,9 +324,9 @@ void test13()
     header.fragment_index = 0;
     header.fragment_count = MAX_FRAGMENT_COUNT + 1;
 
-    std::vector<uint8_t> data(HEADER_SIZE + header.payload_length);
-    std::memcpy(data.data(), &header, HEADER_SIZE);
-    std::memset(data.data() + HEADER_SIZE, 0, header.payload_length);
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
 
     PacketHeader header2;
     std::vector<uint8_t> payload;
@@ -351,9 +351,9 @@ void test14()
     header.fragment_index = 1;
     header.fragment_count = 0;
 
-    std::vector<uint8_t> data(HEADER_SIZE + header.payload_length);
-    std::memcpy(data.data(), &header, HEADER_SIZE);
-    std::memset(data.data() + HEADER_SIZE, 0, header.payload_length);
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
 
     PacketHeader header2;
     std::vector<uint8_t> payload;
@@ -367,16 +367,20 @@ void test14()
 void test15()
 {
     ProtocolSerializer serializer;
-    SessionId id("this_is_a_very_long_session_id_that_exceeds_the_limit");
-    test_assert(id.length() <= MAX_SESSION_ID, "Session ID length should be within limits");
+    test_assert_throws(
+        [&serializer]() {
+            SessionId id("this_is_a_very_long_session_id_that_exceeds_the_limit");
+        },
+        "SessionId with too-long string should throw ProtocolError"
+    );
 }
 
 void test16()
 {
     ProtocolSerializer serializer;
-    SessionId id("test123");
-    test_assert_eq(id.toString(), "test123", "SessionId toString");
-    test_assert_eq(static_cast<int>(id.length()), 7, "SessionId length");
+    SessionId id("session-42");
+    test_assert_eq(id.toString(), "session-42", "SessionId toString");
+    test_assert_eq(static_cast<int>(id.length()), 10, "SessionId length");
     test_assert(!id.empty(), "SessionId should not be empty");
 }
 
@@ -386,7 +390,7 @@ void test17()
     SessionId id;
     id.set("session-42");
     test_assert_eq(id.toString(), "session-42", "SessionId set");
-    test_assert_eq(static_cast<int>(id.length()), 9, "SessionId set length");
+    test_assert_eq(static_cast<int>(id.length()), 10, "SessionId set length");
 }
 
 void test18()
@@ -420,7 +424,7 @@ void test19()
     std::vector<uint8_t> serialized;
 
     size_t written = serializer.serialize(header, payload, serialized);
-    test_assert_eq((int)written, (int)(PacketHeader::HEADER_SIZE + testPayloadSize), "serialize length");
+    test_assert_eq((int)written, (int)(PacketHeader::PacketHeader::HEADER_SIZE + testPayloadSize), "serialize length");
 
     PacketHeader header2;
     std::vector<uint8_t> payload2;
@@ -446,9 +450,9 @@ void test20()
     header.fragment_index = 0;
     header.fragment_count = MAX_FRAGMENT_COUNT;
 
-    std::vector<uint8_t> data(HEADER_SIZE + header.payload_length);
-    std::memcpy(data.data(), &header, HEADER_SIZE);
-    std::memset(data.data() + HEADER_SIZE, 0, header.payload_length);
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
 
     PacketHeader header2;
     std::vector<uint8_t> payload;

@@ -52,11 +52,22 @@ namespace linkforge
     // Byte order conversion functions (network byte order = big endian)
     inline uint16_t htons(uint16_t v) { return static_cast<uint16_t>((v << 8) | (v >> 8)); }
     inline uint16_t ntohs(uint16_t v) { return htons(v); }
-    inline uint32_t htonl(uint32_t v) { return ((v << 24) | ((v << 8) & 0x00FF0000) | ((v >> 8) & 0x0000FF00) | (v >> 24)); }
+    inline uint32_t htonl(uint32_t v) { return ((v >> 24) & 0x000000FF) | ((v >> 8) & 0x0000FF00) | ((v << 8) & 0x00FF0000) | ((v << 24) & 0xFF000000); }
     inline uint32_t ntohl(uint32_t v) { return htonl(v); }
 
+    // Validate protocol version
+    inline bool isValidProtocolVersion(uint8_t version) noexcept
+    {
+        return version == PROTOCOL_VERSION;
+    }
+
+    // Validate message type (0-127 valid per protocol spec)
+    inline bool isValidMessageType(uint8_t type) noexcept
+    {
+        return type < MAX_MESSAGE_TYPE;
+    }
+
     // Protocol packet structure (56 bytes after alignment)
-    // magic(4) + version(1) + message_type(1) + flags(1) + payload_length(2) + sequence_number(4) + session_id(32) + timestamp(4) + fragment_index(2) + fragment_count(2)
     struct PacketHeader
     {
         uint32_t magic;
@@ -132,7 +143,7 @@ namespace linkforge
     class SessionId
     {
     public:
-        SessionId() { std::memset(data_, 0, sizeof(data_)); }
+        SessionId() { std::memset(data_, 0, sizeof(data_)); length_ = 0; }
         SessionId(const std::string& id) { set(id); }
         SessionId(const uint8_t* id, size_t len) { set(id, len); }
         void set(const std::string& id);

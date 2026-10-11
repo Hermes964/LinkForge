@@ -1,0 +1,37 @@
+# Build artifacts
+build/
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.a
+CMakeCache.txt
+CMakeFiles/
+Makefile
+CTestTestfile.cmake
+compile_commands.json
+DependInfo.cmake
+cmake_install.cmake
+install/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Protocol test binary
+protocol_test
