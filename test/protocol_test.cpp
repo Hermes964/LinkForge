@@ -126,7 +126,7 @@ void test6()
     ProtocolSerializer serializer;
 
     size_t written = serializer.serialize(header, payload, serialized);
-    test_assert_eq((int)written, (int)(PacketHeader::PacketHeader::HEADER_SIZE + 100), "serialize length");
+    test_assert_eq((int)written, (int)(PacketHeader::HEADER_SIZE + 100), "serialize length");
 
     PacketHeader header2;
     std::vector<uint8_t> payload2;
@@ -171,7 +171,7 @@ void test7()
     ProtocolSerializer serializer;
 
     size_t written = serializer.serialize(header, frame, payload, serialized);
-    test_assert_eq((int)written, (int)(PacketHeader::PacketHeader::HEADER_SIZE + sizeof(FrameHeader) + 50), "serialize with frame length");
+    test_assert_eq((int)written, (int)(PacketHeader::HEADER_SIZE + sizeof(FrameHeader) + 50), "serialize with frame length");
 
     PacketHeader header2;
     FrameHeader frame2;
@@ -424,7 +424,7 @@ void test19()
     std::vector<uint8_t> serialized;
 
     size_t written = serializer.serialize(header, payload, serialized);
-    test_assert_eq((int)written, (int)(PacketHeader::PacketHeader::HEADER_SIZE + testPayloadSize), "serialize length");
+    test_assert_eq((int)written, (int)(PacketHeader::HEADER_SIZE + testPayloadSize), "serialize length");
 
     PacketHeader header2;
     std::vector<uint8_t> payload2;
@@ -460,6 +460,126 @@ void test20()
     serializer.deserialize(data, header2, payload);
 }
 
+
+void test21()
+{
+    ProtocolSerializer serializer;
+    PacketHeader header = {};
+
+    // Empty session ID (all zero bytes)
+    header.magic = PROTOCOL_MAGIC;
+    header.protocol_version = PROTOCOL_VERSION;
+    header.message_type = static_cast<uint8_t>(MessageType::VIDEO_FRAGMENT);
+    header.payload_length = 0;
+    header.sequence_number = 1;
+    header.timestamp = 1;
+    header.fragment_index = 0;
+    header.fragment_count = 1;
+
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
+
+    PacketHeader header2;
+    std::vector<uint8_t> payload;
+
+    test_assert_throws(
+        [&serializer, &data, &header2, &payload]() { serializer.deserialize(data, header2, payload); },
+        "Empty session ID should throw ProtocolError"
+    );
+}
+
+void test22()
+{
+    ProtocolSerializer serializer;
+    PacketHeader header = {};
+
+    // Maximum-length session ID (32 chars)
+    header.magic = PROTOCOL_MAGIC;
+    header.protocol_version = PROTOCOL_VERSION;
+    header.message_type = static_cast<uint8_t>(MessageType::VIDEO_FRAGMENT);
+    header.session_id[0] = 'A';
+    header.session_id[1] = 'B';
+    for (size_t i = 2; i < 32; ++i)
+        header.session_id[i] = 'X';
+    header.payload_length = 0;
+    header.sequence_number = 1;
+    header.timestamp = 1;
+    header.fragment_index = 0;
+    header.fragment_count = 1;
+
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
+
+    PacketHeader header2;
+    std::vector<uint8_t> payload;
+
+    serializer.deserialize(data, header2, payload);
+
+    test_assert_eq(memcmp(header2.session_id, header.session_id, MAX_SESSION_ID), 0,
+                   "MAX session ID roundtrip");
+}
+
+void test23()
+{
+    ProtocolSerializer serializer;
+    PacketHeader header = {};
+
+    // Session ID with embedded null byte (not at end)
+    header.magic = PROTOCOL_MAGIC;
+    header.protocol_version = PROTOCOL_VERSION;
+    header.message_type = static_cast<uint8_t>(MessageType::VIDEO_FRAGMENT);
+    header.session_id[0] = 'A';
+    header.session_id[1] = 0x00;   // embedded null
+    header.session_id[2] = 'B';
+    header.payload_length = 0;
+    header.sequence_number = 1;
+    header.timestamp = 1;
+    header.fragment_index = 0;
+    header.fragment_count = 1;
+
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
+
+    PacketHeader header2;
+    std::vector<uint8_t> payload;
+
+    test_assert_throws(
+        [&serializer, &data, &header2, &payload]() { serializer.deserialize(data, header2, payload); },
+        "Session ID with embedded null byte should throw ProtocolError"
+    );
+}
+
+void test24()
+{
+    ProtocolSerializer serializer;
+    PacketHeader header = {};
+
+    // Sequence number zero - should throw
+    header.magic = PROTOCOL_MAGIC;
+    header.protocol_version = PROTOCOL_VERSION;
+    header.message_type = static_cast<uint8_t>(MessageType::VIDEO_FRAGMENT);
+    header.payload_length = 0;
+    header.sequence_number = 0;
+    header.timestamp = 1;
+    header.fragment_index = 0;
+    header.fragment_count = 1;
+
+    std::vector<uint8_t> data(PacketHeader::HEADER_SIZE + header.payload_length);
+    std::memcpy(data.data(), &header, PacketHeader::HEADER_SIZE);
+    std::memset(data.data() + PacketHeader::HEADER_SIZE, 0, header.payload_length);
+
+    PacketHeader header2;
+    std::vector<uint8_t> payload;
+
+    test_assert_throws(
+        [&serializer, &data, &header2, &payload]() { serializer.deserialize(data, header2, payload); },
+        "Sequence number zero should throw ProtocolError"
+    );
+}
+
 void runAllTests()
 {
     test(test1, "IsValidProtocolVersion");
@@ -482,7 +602,12 @@ void runAllTests()
     test(test18, "WithinLimits");
     test(test19, "PayloadLengthRoundTrip");
     test(test20, "MaxFragmentCount");
+    test(test21, "EmptySessionId");
+    test(test22, "MaxSessionId");
+    test(test23, "EmbeddedNullByte");
+    test(test24, "SequenceNumberZero");
 }
+
 
 int main(int argc, char** argv)
 {
